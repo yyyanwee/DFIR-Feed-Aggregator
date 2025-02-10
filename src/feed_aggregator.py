@@ -1,6 +1,8 @@
+import datetime
 import os
 import sys
 import time
+import uuid
 import feedparser
 import yaml
 import stix2
@@ -69,8 +71,44 @@ class FeedAggregator:
             print(e)
             pass
 
-
         return filtered_items
+    
+    def _create_stix_report(self, entry: Dict[str, Any]) -> stix2.Report:
+        """
+        Convert RSS entry into a STIX2 Report object.
+        """
+        return stix2.Report(
+            id=f"report--{str(uuid.uuid4())}",
+            created_by_ref=f"identity--{self.config['connector_id']}",
+            name=entry.get('title', 'Untitled RSS Entry'),
+            description=entry.get('summary', ''),
+            published=entry.get('published', datetime.now().isoformat()),
+            object_refs=[],  # You can add more refs if needed
+            labels=['rss-feed', entry.get('source', 'unknown')]
+        )
+    
+    def process_rss_feeds(self):
+        self._load_state()
+
+        for feed_url in self.config['rss_feeds']:
+            feed = feedparser.parse(feed_url)
+                
+            for entry in feed.entries:
+                if self._is_entry_new(entry):
+                    try:
+                        report = self._create_stix_report(entry)
+                            
+                        # Create report in OpenCTI
+                        self.helper.stix2_create_report(report)
+                            
+                        # Track processed entry
+                        self.processed_entries.add(entry.get('id', ''))
+                        
+                    except Exception as e:
+                        self.helper.log_error(f"Error processing entry: {e}")
+
+        # Save after processing
+        self._save_state()
     
     def run(self):
         for feed_url in self.rss_feed_urls:
