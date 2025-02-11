@@ -46,3 +46,18 @@ Below are the parameters you'll need to set to run the connector properly:
 |-----------------------|---------------------|-------------------------------|--------------|-----------|--------------------------------------------------------------------------------------------------|
 | ID                    | `id`                | `CONNECTOR_ID`                | /            | Yes       | A unique `UUIDv4` identifier for this connector instance.                                        |
 | Name                  | `name`              | `CONNECTOR_NAME`              | `FeedAggregator` | Yes       | Full name of the connector : `Feed_Aggregator`.                                                       |
+
+
+#### Reference Materials
+PyCTI: https://opencti-client-for-python.readthedocs.io/en/stable/
+
+FeedParser: https://feedparser.readthedocs.io/en/latest/
+
+OpenCTI: https://docs.opencti.io/latest/deployment/connectors/#introduction
+https://docs.opencti.io/latest/development/connectors/
+
+Stix: https://oasis-open.github.io/cti-documentation/stix/intro.html
+    
+
+
+

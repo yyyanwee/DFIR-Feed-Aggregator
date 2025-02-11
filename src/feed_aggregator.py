@@ -18,15 +18,6 @@ from pycti import OpenCTIConnectorHelper, get_config_variable
 #
 # }
 
-#hardcode testing version
-config ={
-    "opencti_url": "opencti:8080",
-    "opencti_token": "d4f4d2b0-6b3b-4f6b-8d2d-3f8f6c6d8b4d",
-    "rss_feed_urls": ["https://www.bleepingcomputer.com/feed/", "https://feeds.feedburner.com/TheHackersNews"],
-    "keyword_filters": ["security"],
-    "feed_keyword_blacklist": ["top"]
-}
-
 class FeedAggregator:
     def __init__(self):
         #config_file_path = os.path.dirname(os.path.abspath(__file__)) + "/config.yml"
@@ -35,10 +26,19 @@ class FeedAggregator:
         #     if os.path.isfile(config_file_path)
         #     else {}
         # )
+        #hardcode testing version
+        self.config ={
+            "OPENCTI_URL": "http://opencti:8080",
+            "OPENCTI_TOKEN": "d4f4d2b0-6b3b-4f6b-8d2d-3f8f6c6d8b4d",
+            "rss_feed_urls": ["https://www.bleepingcomputer.com/feed/", "https://feeds.feedburner.com/TheHackersNews"],
+            "keyword_filters": ["security"],
+            "feed_keyword_blacklist": ["top"] #not exhaustive
+        }
         #self.helper = OpenCTIConnectorHelper(self.config) 
-        self.rss_feed_urls = config["rss_feed_urls"]
-        self.keyword_filters = config["keyword_filters"]
-        self.feed_keyword_blacklist = config["feed_keyword_blacklist"]
+        self.rss_feed_urls = self.config["rss_feed_urls"]
+        self.keyword_filters = self.config["keyword_filters"]
+        self.feed_keyword_blacklist = self.config["feed_keyword_blacklist"]
+        
 
         self.processed_entries = set()
 
@@ -73,34 +73,34 @@ class FeedAggregator:
 
         return filtered_items
     
-    def _create_stix_report(self, entry: Dict[str, Any]) -> stix2.Report:
-        """
-        Convert RSS entry into a STIX2 Report object.
-        """
+    #Helper function
+    def _create_stix_report(self, entry: dict[str, any]) -> stix2.Report:
+        #Convert RSS entry into a STIX2 Report object.
         return stix2.Report(
+            type="report",
+            name=entry.get('title', datetime.datetime.today().now().isoformat()),
             id=f"report--{str(uuid.uuid4())}",
-            created_by_ref=f"identity--{self.config['connector_id']}",
-            name=entry.get('title', 'Untitled RSS Entry'),
             description=entry.get('summary', ''),
-            published=entry.get('published', datetime.now().isoformat()),
-            object_refs=[],  # You can add more refs if needed
-            labels=['rss-feed', entry.get('source', 'unknown')]
+            published=datetime.date.today(),
+            object_refs=["indicator--26ffb872-1dd9-446e-b6f5-d58527e5b5d2"],  # You can add more refs if needed
+
+            #optional below here
+            labels=['rss-feed', entry.get('source', 'unknown')],          
+            created_by_ref=f"identity--{self.config['OPENCTI_TOKEN']}"
         )
     
     def process_rss_feeds(self):
-        self._load_state()
+        #self._load_state()
 
         for feed_url in self.config['rss_feeds']:
-            feed = feedparser.parse(feed_url)
-                
+            
             for entry in feed.entries:
                 if self._is_entry_new(entry):
                     try:
                         report = self._create_stix_report(entry)
-                            
                         # Create report in OpenCTI
-                        self.helper.stix2_create_report(report)
-                            
+                        #self.helper.stix2_create_report(report)
+                        
                         # Track processed entry
                         self.processed_entries.add(entry.get('id', ''))
                         
@@ -108,7 +108,15 @@ class FeedAggregator:
                         self.helper.log_error(f"Error processing entry: {e}")
 
         # Save after processing
-        self._save_state()
+        #self._save_state()
+    
+    def send_to_opencti(self):
+        bundle_objects = []
+        bundle_objects.append(self.processed_entries) # should be the new entries only
+
+        bundle = stix2.Bundle(objects=bundle_objects).serialize()
+        print(bundle)
+        #bundles_sent = self.opencti_connector_helper.send_stix2_bundle(bundle) #assign variable for logging purposes
     
     def run(self):
         for feed_url in self.rss_feed_urls:
@@ -119,10 +127,10 @@ class FeedAggregator:
                 print(entry.title)
                 print(entry.description)
                 print("")
+                report = self._create_stix_report(entry)
+                print(report)
             print("next site")
-        
-        pass
-            
+
     def process(self):
         self.run()
         time.sleep(3600) #1 hour in seconds
