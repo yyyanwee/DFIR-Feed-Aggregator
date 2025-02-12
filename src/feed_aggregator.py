@@ -3,9 +3,8 @@ import os
 import re
 import sys
 import time
-import uuid
 import feedparser
-import yaml
+import dateparser
 import stix2
 from pycti import OpenCTIConnectorHelper, get_config_variable, Report
 
@@ -22,7 +21,7 @@ class FeedAggregator:
         self.config ={
             "OPENCTI_URL": "http://opencti:8080",
             "OPENCTI_TOKEN": "d4f4d2b0-6b3b-4f6b-8d2d-3f8f6c6d8b4d",
-            "rss_feed_urls": ["https://www.bleepingcomputer.com/feed/", "https://feeds.feedburner.com/TheHackersNews"],
+            "rss_feed_urls": ["https://www.bleepingcomputer.com/feed/","https://feeds.feedburner.com/TheHackersNews"], 
             "keyword_filters": ["security"],
             "feed_keyword_blacklist": ["top"] #not exhaustive
         }
@@ -34,6 +33,12 @@ class FeedAggregator:
         
         # to track already processed entries
         self.processed_entries = set()
+
+        # self.dummy_organization = self.helper.api.identity.create(
+        #     type="Organization",
+        #     name="DUMMY",
+        #     description="Dummy organization which can be used in various unknown contexts.",
+        # )
 
     def _load_state(self):
         #Loads previously processed entry identifiers from connector state
@@ -55,14 +60,17 @@ class FeedAggregator:
     def _create_stix_report(self, entry: dict[str, any]) -> stix2.Report:
         #Convert RSS entry into a STIX2 Report object.
         report_name = entry.title
-        report_date = entry.published
+        report_date = dateparser.parse(entry.published)
+        external_reference = stix2.ExternalReference(source_name="Aggregator", url=entry.link) # TODO: Find a way to name external reference according to source name
 
         report = stix2.Report(
                         id=Report.generate_id(report_name, report_date),
                         name=report_name,
-                        published=report_date, # TODO: Change report date to supported datetime object
-                        external_references=[entry.link],
-                        object_refs=[] #object_refs=[self.dummy_organization["standard_id"]] 
+                        published=report_date,
+                        description = entry.summary,
+                        external_references=[external_reference],
+                        object_refs=["indicator--26ffb872-1dd9-446e-b6f5-d58527e5b5d2"] # TODO: Figure this out, cannot be empty
+                        #object_refs=[self.dummy_organization["standard_id"]] 
                     )
         return report
 
@@ -75,8 +83,10 @@ class FeedAggregator:
         # Applies to the following feeds: Bleeping Computer
         try:
             if any(keyword.lower() in (entry['tags'][0]['term']).lower() for keyword in self.keyword_filters):
-                filtered = entry # TODO: Condition too specific, feeds that have different format will crash this 
-        except AttributeError: # TODO: Change Error Type
+                filtered = entry
+            else: # entry does not contain the tags we are looking for
+                return False 
+        except KeyError: # entry does not have a 'tags' field
             filtered = entry
 
         # Title-based exclusion using regex
@@ -90,7 +100,8 @@ class FeedAggregator:
         ]
         for pattern in exclusions:
             regex = re.compile(pattern, re.IGNORECASE)
-            is_okay = not regex.match(filtered.title)
+            if regex.match(filtered.title):
+                return False
 
         return is_okay
         
@@ -101,7 +112,7 @@ class FeedAggregator:
         for url in self.rss_feed_urls:
             feed = feedparser.parse(url)
             for entry in feed.entries:
-                if True: #self._is_entry_new(entry):
+                if True: #self._is_entry_new(entry): TODO: Implement this
                     try:
                         if(self.filter_entry(entry)):
                             report = self._create_stix_report(entry)
@@ -118,17 +129,23 @@ class FeedAggregator:
     
 
     def run(self):
+        print(f"Running Feed Aggregator - Run")
+        NumBefore = len(self.processed_entries)
         self.process_rss_feeds()
-        print(self.processed_entries)
+        #print(self.processed_entries)
+        NumReportsAdded = len(self.processed_entries) - NumBefore
+        print(f"Number of reports added: {NumReportsAdded}")
+        print(f"Running Feed Aggregator - End")
 
     def process(self):
         self.run()
-        time.sleep(3600) #1 hour in seconds
+        time.sleep(15) #1 min in seconds
     
 if __name__ == "__main__":
     try:
         Feed_Aggregator = FeedAggregator()
-        Feed_Aggregator.process()
+        while True:
+            Feed_Aggregator.process()
     except Exception as e:
         print(e)
         time.sleep(10)
