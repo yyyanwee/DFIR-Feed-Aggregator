@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import re
 import sys
@@ -31,8 +32,10 @@ class FeedAggregator:
         self.keyword_filters = self.config["keyword_filters"]
         self.feed_keyword_blacklist = self.config["feed_keyword_blacklist"]
         
-        # to track already processed entries
+        # to track previously processed entries
         self.processed_entries = set()
+
+        self.rejected_entries = set()
 
         # self.dummy_organization = self.helper.api.identity.create(
         #     type="Organization",
@@ -72,6 +75,8 @@ class FeedAggregator:
                         object_refs=["indicator--26ffb872-1dd9-446e-b6f5-d58527e5b5d2"] # TODO: Figure this out, cannot be empty
                         #object_refs=[self.dummy_organization["standard_id"]] 
                     )
+        print(report)
+        print("")
         return report
 
 
@@ -89,20 +94,41 @@ class FeedAggregator:
         except KeyError: # entry does not have a 'tags' field
             filtered = entry
 
+        # For Bleeping Computer, the author tag contains information that it's sponsored
+        # e.g. author = "Sponsored by TruGrid"
+        try:
+            if "sponsored" in filtered['author'].lower():
+                return False
+        except KeyError: # entry does not have an 'author' field
+            pass
+
         # Title-based exclusion using regex
         # Attempts to remove unnecessary entries with titles such as "Top xx in 2025" or ad posts
         # List is not exhaustive, but we try our best!
-        exclusions = [
-            r'Top \d+ .*', 
-            r'Best \d+ .*',  # Best xxx"
-            r'.*Sponsored.*',  # Sponsored by ...
-            r'Advertisement.*'  # Advertisements Posts
+
+        #TODO: Improve this filter
+        
+        non_event_title_starters = [
+            r'^how\s+to',
+            r'^\d+\s+ways', # e.g. 4 ways to ....
+            r'^guide\s+to',
+            r'^understanding',
+            r'^protecting',
+            r'^why\s+you\s+should',
+            r'^best\s+practices',
+            r'^top\s+\d+',
         ]
-        for pattern in exclusions:
+        for pattern in non_event_title_starters:
             regex = re.compile(pattern, re.IGNORECASE)
             if regex.match(filtered.title):
                 return False
 
+        # unused, potential TODO: Target based on words in description field
+        non_event_desc_exclusions = [
+            'guide','best practices','tips',
+            'strategy','adoption','basics',
+            'introduction',"weekly recap", "trends", "sponsored"]
+        
         return is_okay
         
 
@@ -112,14 +138,15 @@ class FeedAggregator:
         for url in self.rss_feed_urls:
             feed = feedparser.parse(url)
             for entry in feed.entries:
-                if True: #self._is_entry_new(entry): TODO: Implement this
+                if True: #self._is_entry_new(entry): TODO: Implement this || tbh unnecessary unless really need to save on compute
                     try:
                         if(self.filter_entry(entry)):
                             report = self._create_stix_report(entry)
 
                             # Track processed entry
                             self.processed_entries.add(report.get('id'))
-                        
+                        else:
+                            self.rejected_entries.add(entry)
                     except Exception as e:
                         #self.helper.log_error(f"Error processing entry: {e}")
                         print(e)
@@ -132,9 +159,20 @@ class FeedAggregator:
         print(f"Running Feed Aggregator - Run")
         NumBefore = len(self.processed_entries)
         self.process_rss_feeds()
-        #print(self.processed_entries)
+
         NumReportsAdded = len(self.processed_entries) - NumBefore
+        # TODO: Sending information bundle to OpenCTI
+    
         print(f"Number of reports added: {NumReportsAdded}")
+
+        #save set as json file
+        processed_entries_dict = {"processed_entries": list(self.processed_entries)}
+        json.dump(processed_entries_dict, open("processed_entries.json", "w"))
+
+        print("Rejected Entries\n")
+        print(f"Number of rejected entries: {len(self.rejected_entries)}")
+        print(self.rejected_entries)
+
         print(f"Running Feed Aggregator - End")
 
     def process(self):
