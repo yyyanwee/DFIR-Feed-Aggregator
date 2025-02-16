@@ -107,27 +107,60 @@ class FeedAggregator:
         # List is not exhaustive, but we try our best!
 
         #TODO: Improve this filter
-        
         non_event_title_starters = [
-            r'^how\s+to',
-            r'^\d+\s+ways', # e.g. 4 ways to ....
-            r'^guide\s+to',
-            r'^understanding',
-            r'^protecting',
-            r'^why\s+you\s+should',
-            r'^best\s+practices',
-            r'^top\s+\d+',
+            # How-to and guides
+            r'how\s+to',
+            r'guide(?:s)?\s+(?:to|for)',
+            r'(?:quick\s+)?tutorial',
+            
+            # Numbered lists and rankings
+            r'\d+\s+(?:ways|steps|tips|tools|tricks|things)',
+            r'top\s+\d+',
+            r'best\s+\d+',
+            
+            # Educational/informational
+            r'understanding',
+            r'(?:what|when|why|where)\s+(?:is|are|you|to)',
+            r'(?:protecting|securing|safeguarding)',
+            r'introduction\s+to',
+            
+            # Best practices and recommendations
+            r'best\s+practices',
+            r'essential\s+(?:tips|practices|steps)',
+            r'why\s+you\s+should',
+            
+            # Summaries and roundups
+            r'weekly\s+(?:recap|roundup|digest)',
+            r'month(?:ly)?\s+in\s+review',
+            r'(?:daily|weekly|monthly)\s+(?:security\s+)?(?:update|summary)',
+            
+            # Promotional content
+            r'sponsored(?:\s+post)?:?',
+            r'advertis(?:ement|ing):?',
+            r'\[sponsored\]',
+            
+            # Resource collections
+            r'resource(?:s)?\s+(?:guide|list)',
+            r'checklist(?:s)?\s+for',
         ]
+
         for pattern in non_event_title_starters:
             regex = re.compile(pattern, re.IGNORECASE)
-            if regex.match(filtered.title):
+            if regex.search(filtered["title"]):
                 return False
 
-        # unused, potential TODO: Target based on words in description field
-        non_event_desc_exclusions = [
+        # Summary-based exclusions, uses set intersection
+        non_event_desc_exclusions = {
             'guide','best practices','tips',
             'strategy','adoption','basics',
-            'introduction',"weekly recap", "trends", "sponsored"]
+            'introduction',"weekly recap", "trends", "sponsored"}
+        try:
+            summary_set = set(filtered.summary.split())
+
+            if summary_set.intersection(non_event_desc_exclusions):
+                return False
+        except KeyError:
+            pass
         
         return is_okay
         
@@ -138,7 +171,7 @@ class FeedAggregator:
         for url in self.rss_feed_urls:
             feed = feedparser.parse(url)
             for entry in feed.entries:
-                if True: #self._is_entry_new(entry): TODO: Implement this || tbh unnecessary unless really need to save on compute
+                if True: #self._is_entry_new(entry): TODO: Implement this - might be unnecessary tho!
                     try:
                         if(self.filter_entry(entry)):
                             report = self._create_stix_report(entry)
@@ -165,13 +198,12 @@ class FeedAggregator:
     
         print(f"Number of reports added: {NumReportsAdded}")
 
-        #save set as json file
-        processed_entries_dict = {"processed_entries": list(self.processed_entries)}
-        json.dump(processed_entries_dict, open("processed_entries.json", "w"))
+        #For ease of debugging/tracking
+        rejected_entries_dict = {"rejected_entries": list(self.rejected_entries)}
+        json.dump(rejected_entries_dict, open("processed_entries.json", "w"))
 
         print("Rejected Entries\n")
         print(f"Number of rejected entries: {len(self.rejected_entries)}")
-        print(self.rejected_entries)
 
         print(f"Running Feed Aggregator - End")
 
