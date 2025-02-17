@@ -1,4 +1,3 @@
-import datetime
 import json
 import os
 import re
@@ -7,7 +6,13 @@ import time
 import feedparser
 import dateparser
 import stix2
-from pycti import OpenCTIConnectorHelper, get_config_variable, Report
+from pycti import OpenCTIConnectorHelper, Report
+
+"""
+TODO:
+1. Different feed may contain the same information but since they are from different sources, they are considered different.
+2. 
+"""
 
 class FeedAggregator:
     def __init__(self):
@@ -22,15 +27,13 @@ class FeedAggregator:
         self.config ={
             "OPENCTI_URL": "http://opencti:8080",
             "OPENCTI_TOKEN": "d4f4d2b0-6b3b-4f6b-8d2d-3f8f6c6d8b4d",
-            "rss_feed_urls": ["https://www.bleepingcomputer.com/feed/","https://feeds.feedburner.com/TheHackersNews"], 
+            "feed_urls": [("Bleeping Computer","https://www.bleepingcomputer.com/feed/"), ("The Hackers News","https://feeds.feedburner.com/TheHackersNews")],
             "keyword_filters": ["security"],
-            "feed_keyword_blacklist": ["top"] #not exhaustive
         }
 
         #self.helper = OpenCTIConnectorHelper(self.config) 
-        self.rss_feed_urls = self.config["rss_feed_urls"]
+        self.rss_feed_urls = self.config["feed_urls"]
         self.keyword_filters = self.config["keyword_filters"]
-        self.feed_keyword_blacklist = self.config["feed_keyword_blacklist"]
         
         # to track previously processed entries
         self.processed_entries = set()
@@ -60,17 +63,17 @@ class FeedAggregator:
         return
 
     #Helper function
-    def _create_stix_report(self, entry: dict[str, any]) -> stix2.Report:
+    def _create_stix_report(self, entry: dict[str, any], source) -> stix2.Report:
         #Convert RSS entry into a STIX2 Report object.
         report_name = entry.title
         report_date = dateparser.parse(entry.published)
-        external_reference = stix2.ExternalReference(source_name="Aggregator", url=entry.link) # TODO: Find a way to name external reference according to source name
+        external_reference = stix2.ExternalReference(source_name=source, url=entry.link) # TODO: Find a way to name external reference according to source name
 
         report = stix2.Report(
                         id=Report.generate_id(report_name, report_date),
                         name=report_name,
                         published=report_date,
-                        description = entry.summary,
+                        description = entry["summary"],
                         external_references=[external_reference],
                         object_refs=["indicator--26ffb872-1dd9-446e-b6f5-d58527e5b5d2"] # TODO: Figure this out, cannot be empty
                         #object_refs=[self.dummy_organization["standard_id"]] 
@@ -105,8 +108,6 @@ class FeedAggregator:
         # Title-based exclusion using regex
         # Attempts to remove unnecessary entries with titles such as "Top xx in 2025" or ad posts
         # List is not exhaustive, but we try our best!
-
-        #TODO: Improve this filter
         non_event_title_starters = [
             # How-to and guides
             r'how\s+to',
@@ -149,14 +150,14 @@ class FeedAggregator:
             if regex.search(filtered["title"]):
                 return False
 
-        # Summary-based exclusions, uses set intersection
+        # Summary-based exclusions
+        # Remove entries based on specific keywords present in the summary
         non_event_desc_exclusions = {
             'guide','best practices','tips',
             'strategy','adoption','basics',
             'introduction',"weekly recap", "trends", "sponsored"}
         try:
-            summary_set = set(filtered.summary.split())
-
+            summary_set = set(filtered["summary"].split())
             if summary_set.intersection(non_event_desc_exclusions):
                 return False
         except KeyError:
@@ -168,16 +169,23 @@ class FeedAggregator:
     def process_rss_feeds(self):
         #self._load_state()
 
-        for url in self.rss_feed_urls:
-            feed = feedparser.parse(url)
-            for entry in feed.entries:
+        for detail in self.rss_feed_urls:
+            feed = feedparser.parse(detail[1])
+            for entry in feed["entries"]:
                 if True: #self._is_entry_new(entry): TODO: Implement this - might be unnecessary tho!
                     try:
                         if(self.filter_entry(entry)):
-                            report = self._create_stix_report(entry)
+                            report = self._create_stix_report(entry, detail[0])
 
-                            # Track processed entry
+                            # Track processed entry id to prevent duplicates
                             self.processed_entries.add(report.get('id'))
+
+                            # send report to OpenCTI
+                            bundle = stix2.Bundle(objects=report).serialize()
+                            #self.helper.send_stix2_bundle(bundle, entities_types=self.helper.connect_scope)
+
+                            # Save after sending
+                            # self._save_state()
                         else:
                             self.rejected_entries.add(entry)
                     except Exception as e:
@@ -186,7 +194,7 @@ class FeedAggregator:
 
         # Save after processing
         #self._save_state()
-    
+
 
     def run(self):
         print(f"Running Feed Aggregator - Run")
@@ -194,13 +202,11 @@ class FeedAggregator:
         self.process_rss_feeds()
 
         NumReportsAdded = len(self.processed_entries) - NumBefore
-        # TODO: Sending information bundle to OpenCTI
-    
         print(f"Number of reports added: {NumReportsAdded}")
 
         #For ease of debugging/tracking
         rejected_entries_dict = {"rejected_entries": list(self.rejected_entries)}
-        json.dump(rejected_entries_dict, open("processed_entries.json", "w"))
+        json.dump(rejected_entries_dict["rejected_entries"], open("processed_entries.txt", "w"))
 
         print("Rejected Entries\n")
         print(f"Number of rejected entries: {len(self.rejected_entries)}")
@@ -209,7 +215,7 @@ class FeedAggregator:
 
     def process(self):
         self.run()
-        time.sleep(15) #1 min in seconds
+        time.sleep(15) #Set to 12 hours before going live (43200)
     
 if __name__ == "__main__":
     try:
