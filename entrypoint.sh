@@ -4,4 +4,4 @@
 cd /opt/opencti-connector-dfir-feed-aggregator
 
 # Start the connector
-python main.py
+python3 feed_aggregator.py

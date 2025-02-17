@@ -1,0 +1,15 @@
+version: '3'
+services:
+  connector-feed-aggregator:
+    image: connector:latest
+    environment:
+      - OPENCTI_URL=http://localhost:8080
+      - OPENCTI_TOKEN=${}
+      - CONNECTOR_ID=${}
+      - CONNECTOR_NAME="Feed Aggregator""
+      - CONNECTOR_LOG_LEVEL=error
+      - CONNECTOR_SCOPE=report
+      - FEED_URLS=${} # To be stored as a iist of tuples of (Name, URL) -> (String,String) format
+      - FEED_KEYWORDS=${} # To be stored as a list of strings
+    depends_on:
+      - opencti
