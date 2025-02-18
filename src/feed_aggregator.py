@@ -37,7 +37,6 @@ class FeedAggregator:
         
         # to track previously processed entries
         self.processed_entries = set()
-
         self.rejected_entries = set()
 
         # self.dummy_organization = self.helper.api.identity.create(
@@ -46,7 +45,7 @@ class FeedAggregator:
         #     description="Dummy organization which can be used in various unknown contexts.",
         # )
 
-    def _load_state(self):
+    def _get_state(self):
         #Loads previously processed entry identifiers from connector state
         state = self.helper.get_state()
         if state and "processed_entries" in state:
@@ -58,10 +57,6 @@ class FeedAggregator:
             "processed_entries": list(self.processed_entries)
         })
     
-    def _is_new_entry(self,entry) -> bool:
-        # Checks if RSS entry is new and should be processed
-        return
-
     #Helper function
     def _create_stix_report(self, entry: dict[str, any], source) -> stix2.Report:
         #Convert RSS entry into a STIX2 Report object.
@@ -167,32 +162,31 @@ class FeedAggregator:
         
 
     def process_rss_feeds(self):
-        #self._load_state()
+        # Get the set of already processed entries
+        #self._get_state()
 
         for detail in self.rss_feed_urls:
             feed = feedparser.parse(detail[1])
             for entry in feed["entries"]:
-                if True: #self._is_entry_new(entry): TODO: Implement this - might be unnecessary tho!
-                    try:
-                        if(self.filter_entry(entry)):
-                            report = self._create_stix_report(entry, detail[0])
+                try:
+                    if(self.filter_entry(entry)):
+                        report = self._create_stix_report(entry, detail[0])
+                        # Track processed entry id to prevent duplicates
+                        self.processed_entries.add(report.get('id'))
 
-                            # Track processed entry id to prevent duplicates
-                            self.processed_entries.add(report.get('id'))
+                        # send report to OpenCTI
+                        bundle = stix2.Bundle(objects=report).serialize()
+                        #self.helper.send_stix2_bundle(bundle, entities_types=self.helper.connect_scope)
 
-                            # send report to OpenCTI
-                            bundle = stix2.Bundle(objects=report).serialize()
-                            #self.helper.send_stix2_bundle(bundle, entities_types=self.helper.connect_scope)
-
-                            # Save after sending
-                            # self._save_state()
-                        else:
-                            self.rejected_entries.add(entry)
-                    except Exception as e:
+                        # Save after sending
+                        # self._save_state()
+                    else:
+                        self.rejected_entries.add(entry)
+                except Exception as e:
                         #self.helper.log_error(f"Error processing entry: {e}")
                         print(e)
 
-        # Save after processing
+        # Final save after processing
         #self._save_state()
 
 

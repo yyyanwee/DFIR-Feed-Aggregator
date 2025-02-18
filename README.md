@@ -29,14 +29,14 @@ Below are the parameters you'll need to set for OpenCTI:
 | Parameter `OpenCTI` | config.yml | Docker environment variable | Mandatory | Description                                          |
 |---------------------|------------|-----------------------------|-----------|------------------------------------------------------|
 | URL                 | url        | `OPENCTI_URL`               | Yes       | The URL of the OpenCTI platform.                     |
-| Token               | token      | `OPENCTI_TOKEN`             | Yes       | The default admin token set in the OpenCTI platform. |
+| Token               | token      | `OPENCTI_TOKEN`             | Yes       | The Token of the Account running this connector.|
  
 Below are the parameters you'll need to set to run the connector properly:
 
 | Parameter `Connector` | config.yml          | Docker environment variable   | Default      | Mandatory | Description                                                                                      |
 |-----------------------|---------------------|-------------------------------|--------------|-----------|--------------------------------------------------------------------------------------------------|
 | ID                    | `id`                | `CONNECTOR_ID`                | /            | Yes       | A unique `UUIDv4` identifier for this connector instance.                                        |
-| Name                  | `name`              | `CONNECTOR_NAME`              | `FeedAggregator` | Yes       | Full name of the connector : `Feed_Aggregator`.                                                       |
+| Name                  | `name`              | `CONNECTOR_NAME`              | `Feed Aggregator` | Yes       | Full name of the connector : `Feed_Aggregator`.                                                       |
 
 ## How it works
 
@@ -85,6 +85,8 @@ https://feedparser.readthedocs.io/en/latest/
 <b>OpenCTI:</b>  
 https://docs.opencti.io/latest/deployment/connectors/#introduction
 https://docs.opencti.io/latest/development/connectors/
+https://github.com/OpenCTI-Platform/connectors/tree/master/templates
+
 
 <b>Stix2:</b>  
 https://oasis-open.github.io/cti-documentation/stix/intro.html
