@@ -36,8 +36,8 @@ class FeedAggregator:
         '''
 
         self.helper = OpenCTIConnectorHelper(config) 
-        self.rss_feed_urls = config["feed_urls"]
-        self.keyword_filters = config["keyword_filters"]
+        self.rss_feed_urls = config["FEED_URLS"]
+        self.keyword_filters = config["FEED_KEYWORDS"]
         
         # to track previously processed entries
         self.processed_entries = set()
