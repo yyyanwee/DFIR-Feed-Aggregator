@@ -1,13 +1,15 @@
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import time
+import traceback
 import yaml
 import feedparser
 import dateparser
 import stix2
-from pycti import OpenCTIConnectorHelper, Report
+from pycti import OpenCTIConnectorHelper, Report, get_config_variable
 
 
 """
@@ -18,9 +20,9 @@ TODO:
 
 class FeedAggregator:
     def __init__(self):
-        config_file_path = os.path.dirname(os.path.abspath(__file__)) + "/config.yml"
+        config_file_path = Path(__file__).parents[1].joinpath("config.yml")
         config = (
-            yaml.load(open(config_file_path), Loader=yaml.SafeLoader)
+            yaml.load(open(config_file_path), Loader=yaml.FullLoader)
             if os.path.isfile(config_file_path)
             else {}
         )
@@ -36,9 +38,15 @@ class FeedAggregator:
         '''
 
         self.helper = OpenCTIConnectorHelper(config) 
-        self.rss_feed_urls = config["FEED_URLS"]
-        self.keyword_filters = config["FEED_KEYWORDS"]
-        
+        rss_feed_urls = get_config_variable("FEED_URLS", ["feed_aggregator", "FEED_URLS"],config, False, None)
+        keyword_filters = get_config_variable("FEED_KEYWORDS", ["feed_aggregator", "FEED_KEYWORDS"],config, False, None)
+
+        self.rss_feed_urls = [tuple(item.split("|")) for item in rss_feed_urls.split(",")]
+        self.keyword_filters = keyword_filters.split(",")
+
+        print(self.rss_feed_urls)
+        print(self.keyword_filters)
+
         # to track previously processed entries
         self.processed_entries = set()
         self.rejected_entries = set()
@@ -221,6 +229,8 @@ if __name__ == "__main__":
             Feed_Aggregator.process()
     except Exception as e:
         print(e)
+        traceback.print_exc()
+        print("run")
         time.sleep(10)
         sys.exit(0)
 

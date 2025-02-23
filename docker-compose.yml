@@ -1,4 +1,3 @@
-version: '3'
 services:
   connector-feed-aggregator:
     image: connector-feed-aggregator:latest

@@ -1,0 +1,15 @@
+opencti:
+  url: 'http://opencti:8080'
+  token: 'ChangeMe'
+
+connector:
+  id: 'ChangeMe'
+  type: 'EXTERNAL_IMPORT'
+  name: 'Feed Aggregator'
+  scope: 'report'
+  log_level: 'info'
+  run_and_terminate: false
+
+feed_aggregator:
+  FEED_URLS=Bleeping Computer|https://www.bleepingcomputer.com/feed/,The Hackers News|https://feeds.feedburner.com/TheHackersNews
+  FEED_KEYWORDS=security
