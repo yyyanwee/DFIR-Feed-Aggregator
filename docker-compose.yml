@@ -11,9 +11,8 @@ services:
       - FEED_URLS=${FEED_URLS} # To be stored as a iist of tuples of (Name, URL) -> (String,String) format
       - FEED_KEYWORDS=${FEED_KEYWORDS} # To be stored as a list of strings
     restart: always
-    networks:
-      - docker_default
 
 networks:
-    docker_default:
-      external: true
+  default:                                                                                                                  
+    name: opencti
+    external: true
