@@ -1,4 +1,5 @@
-import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import os
 from pathlib import Path
 import re
@@ -11,9 +12,8 @@ import dateparser
 import stix2
 from pycti import OpenCTIConnectorHelper, Report, get_config_variable
 
-
 """
-TODO:
+Considerations:
 1. Different feed may contain the same information but since they are from different sources, they are considered different.
 2. 
 """
@@ -27,25 +27,12 @@ class FeedAggregator:
             else {}
         )
 
-        #hardcode testing version
-        '''
-        self.config ={
-            "OPENCTI_URL": "http://opencti:8080",
-            "OPENCTI_TOKEN": "d4f4d2b0-6b3b-4f6b-8d2d-3f8f6c6d8b4d",
-            "feed_urls": [("Bleeping Computer","https://www.bleepingcomputer.com/feed/"), ("The Hackers News","https://feeds.feedburner.com/TheHackersNews")],
-            "keyword_filters": ["security"],
-        }
-        '''
-
         self.helper = OpenCTIConnectorHelper(config) 
         rss_feed_urls = get_config_variable("FEED_URLS", ["feed_aggregator", "FEED_URLS"],config, False, None)
         keyword_filters = get_config_variable("FEED_KEYWORDS", ["feed_aggregator", "FEED_KEYWORDS"],config, False, None)
 
         self.rss_feed_urls = [tuple(item.split("|")) for item in rss_feed_urls.split(",")]
         self.keyword_filters = keyword_filters.split(",")
-
-        print(self.rss_feed_urls)
-        print(self.keyword_filters)
 
         # to track previously processed entries
         self.processed_entries = set()
@@ -58,15 +45,17 @@ class FeedAggregator:
         )
 
     def _get_state(self):
-        #Loads previously processed entry identifiers from connector state
+        #Loads previously processed data from connector state
         state = self.helper.get_state()
         if state and "processed_entries" in state:
             self.processed_entries = set(state["processed_entries"])
+        if state and "rejected_entries" in state:
+            self.rejected_entries = set(state["rejected_entries"])
 
     def _save_state(self):
-        #Saves current processed entries to connector state.
+        #Saves processed and rejected entries to connector state.
         self.helper.set_state({
-            "processed_entries": list(self.processed_entries)
+            "processed_entries": list(self.processed_entries), "rejected_entries": list(self.rejected_entries)
         })
     
     #Helper function
@@ -82,11 +71,9 @@ class FeedAggregator:
                         published=report_date,
                         description = entry["summary"],
                         external_references=[external_reference],
-                        # TODO: Figure this out, cannot be empty
+                        # Using a dummy reference
                         object_refs=[self.dummy_organization["standard_id"]] 
                     )
-        print(report)
-        print("")
         return report
 
 
@@ -193,7 +180,8 @@ class FeedAggregator:
                         # Save after sending
                         self._save_state()
                     else:
-                        self.rejected_entries.add(entry)
+                        self.rejected_entries.add(entry.link)
+                        self._save_state()
                 except Exception as e:
                         self.helper.log_error(f"Error processing entry: {e}")
                         print(e)
@@ -203,24 +191,18 @@ class FeedAggregator:
 
 
     def run(self):
-        print(f"Running Feed Aggregator - Run")
-        # NumBefore = len(self.processed_entries)
+        print(f"Running Feed Aggregator - {datetime.now(ZoneInfo("Asia/Singapore")).strftime("%d-%m-%Y %H:%M:%S")}",flush=True)
+        NumBefore = len(self.processed_entries)
         self.process_rss_feeds()
-
-        # NumReportsAdded = len(self.processed_entries) - NumBefore
-        # print(f"Number of reports added: {NumReportsAdded}")
-
-        # #For ease of debugging/tracking
-        # rejected_entries_dict = {"rejected_entries": list(self.rejected_entries)}
-        # json.dump(rejected_entries_dict["rejected_entries"], open("processed_entries.txt", "w"))
-
-        # print("Rejected Entries\n")
-        # print(f"Number of rejected entries: {len(self.rejected_entries)}")
-        # print(f"Running Feed Aggregator - End")
+        NumReportsAdded = len(self.processed_entries) - NumBefore
+        print(f"Number of reports added this run: {NumReportsAdded}",flush=True)
+        print(f"Total Number of rejected entries: {len(self.rejected_entries)}",flush=True)
+        print(f"Rejected Entries: {self.rejected_entries}", flush=True)
+        print(f"Running Feed Aggregator - End",flush=True)
 
     def process(self):
         self.run()
-        time.sleep(120) #Set to 12 hours before going live (43200)
+        time.sleep(10) #Set to 12 hours before going live (43200)
     
 if __name__ == "__main__":
     try:
@@ -230,7 +212,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
         traceback.print_exc()
-        print("run")
         time.sleep(10)
         sys.exit(0)
 
