@@ -13,8 +13,8 @@ import stix2
 from pycti import OpenCTIConnectorHelper, Report, get_config_variable
 
 """
-Considerations:
-1. Different feed may contain the same information but since they are from different sources, they are considered different.
+Some Limitaations:
+1. Different feeds may contain the same information but since they are from different sources, they are considered different in OpenCTI. 
 2. 
 """
 
@@ -71,6 +71,7 @@ class FeedAggregator:
                         published=report_date,
                         description = entry["summary"],
                         external_references=[external_reference],
+                        report_types=["threat-report"],
                         # Using a dummy reference
                         object_refs=[self.dummy_organization["standard_id"]] 
                     )
@@ -198,11 +199,11 @@ class FeedAggregator:
         print(f"Number of reports added this run: {NumReportsAdded}",flush=True)
         print(f"Total Number of rejected entries: {len(self.rejected_entries)}",flush=True)
         print(f"Rejected Entries: {self.rejected_entries}", flush=True)
-        print(f"Running Feed Aggregator - End",flush=True)
+        print(f"Feed Aggregator Run End",flush=True)
 
     def process(self):
         self.run()
-        time.sleep(10) #Set to 12 hours before going live (43200)
+        time.sleep(43200) #Set to 12 hours - can convert into a config
     
 if __name__ == "__main__":
     try:
