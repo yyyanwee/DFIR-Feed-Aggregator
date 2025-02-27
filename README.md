@@ -3,8 +3,10 @@
 The job of this connector is to poll multiple RSS Feeds at a regular schedule, parsing the feeds using `feedparser`. The connector accomplishes a few key tasks:
 1. Periodically poll multiple RSS feeds
 2. Detect and process new entries
-3. Convert feed entries into [STIX2 Report format](https://docs.oasis-open.org/cti/stix/v2.1/os/stix-v2.1-os.html#_n8bjzg1ysgdq)
-4. Push new reports to OpenCTI Platform
+3. Removes unwanted entries such as sponsored posts/advertisements
+4. Convert feed entries into [STIX2 Report format](https://docs.oasis-open.org/cti/stix/v2.1/os/stix-v2.1-os.html#_n8bjzg1ysgdq)
+5. Push new reports to OpenCTI Platform
+
 
 
 The connector currently covers the following RSS Feeds:
@@ -17,13 +19,14 @@ The connector currently covers the following RSS Feeds:
 
 ## Installation
 The Feed Aggregator connector is a standalone Python process that must have access
-to the OpenCTI platform and the RabbitMQ. RabbitMQ credentials and connection parameters
+to the OpenCTI platform and RabbitMQ. RabbitMQ credentials and connection parameters
 are provided by the API directly, as configured in the platform settings.
 
-Place the contents in the `docker-compose.yml` file provided into the global `docker-compose.yml` file used for OpenCTI.
+To add the connector, copy and paste the contents in the `docker-compose.yml` file provided into the global `docker-compose.yml` file used for the Connector container stack.
 
 ### Configuration variables
 
+You may set the configuration variables directly in the `docker-compose.yml` file or store them in a `.env` file  
 Below are the parameters you'll need to set for OpenCTI:
 
 | Parameter `OpenCTI` | config.yml | Docker environment variable | Mandatory | Description                                          |
@@ -36,7 +39,12 @@ Below are the parameters you'll need to set to run the connector properly:
 | Parameter `Connector` | config.yml          | Docker environment variable   | Default      | Mandatory | Description                                                                                      |
 |-----------------------|---------------------|-------------------------------|--------------|-----------|--------------------------------------------------------------------------------------------------|
 | ID                    | `id`                | `CONNECTOR_ID`                | /            | Yes       | A unique `UUIDv4` identifier for this connector instance.                                        |
-| Name                  | `name`              | `CONNECTOR_NAME`              | `Feed Aggregator` | Yes       | Full name of the connector : `Feed_Aggregator`.                                                       |
+| Name                  | `name`              | `CONNECTOR_NAME`              | `Feed Aggregator` | Yes       | Full name of the connector : `Feed_Aggregator`. Will be displayed in OpenCTI                                                       |
+
+| Parameter `feed_aggregator` | config.yml          | Docker environment variable   | Default      | Mandatory | Description                                                                                      |
+|-----------------------|---------------------|-------------------------------|--------------|-----------|--------------------------------------------------------------------------------------------------|
+| Feed URLs                  | `FEED_URLS`              | `FEED_URLS`              | / | Yes       | URLs of RSS Feeds to be polled. To be stored as a string in `Source Name\|Feed URL` format                                                      |
+| Feed Keywords                  | `FEED_KEYWORDS`              | `FEED_KEYWORDS`              | / | Yes       | Keywords to be used in Category Filter. To be stored as a single string, seperated by a `,`                                                      |
 
 ## How it works
 
@@ -47,6 +55,7 @@ The following rules are applied to the feeds:
 | Rule |    Description | Feeds Applied |
 | ----------- | ----------- | ----------- |
 | Category Filter | Selects articles of certain categories | Bleeping Computer |
+| Sponsored Author Filter |Removes articles if they include "Sponsored" in the author tag | Bleeping Computer
 | Ad Removal | Removes unnecessary ad posts or summary posts | All |
 |  | |
 
@@ -84,13 +93,10 @@ https://feedparser.readthedocs.io/en/latest/
 
 <b>OpenCTI:</b>  
 https://docs.opencti.io/latest/deployment/connectors/#introduction
-https://docs.opencti.io/latest/development/connectors/
+https://docs.opencti.io/latest/development/connectors/  
 https://github.com/OpenCTI-Platform/connectors/tree/master/templates
 
-
 <b>Stix2:</b>  
-https://oasis-open.github.io/cti-documentation/stix/intro.html
-    
+https://oasis-open.github.io/cti-documentation/stix/intro.html  
 
-
-
+<b></b>
