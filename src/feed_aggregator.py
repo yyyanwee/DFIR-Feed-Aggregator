@@ -203,7 +203,7 @@ class FeedAggregator:
 
     def process(self):
         self.run()
-        time.sleep(43200) #Set to 12 hours - can convert into a config
+        time.sleep(21600) #Set to run every 6 hours - can convert into a config
     
 if __name__ == "__main__":
     try:
