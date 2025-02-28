@@ -55,7 +55,7 @@ class FeedAggregator:
     def _save_state(self):
         #Saves processed and rejected entries to connector state.
         self.helper.set_state({
-            "processed_entries": list(self.processed_entries), "rejected_entries": list(self.rejected_entries)
+            "processed_entries": list(self.processed_entries), "rejected_entries": list(self.rejected_entries), "last_run": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
     
     #Helper function
